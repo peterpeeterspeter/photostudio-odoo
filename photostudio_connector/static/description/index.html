@@ -1,0 +1,89 @@
+<section class="container">
+    <div class="row mt-4 mb-4">
+        <div class="col-12 text-center">
+            <img class="img-fluid mb-3" src="banner.png" alt="Photostudio Connector"/>
+            <h2 class="font-weight-bold">Generate product images from Odoo</h2>
+            <p class="text-muted">
+                Ghost mannequin, flatlay, on-model, lifestyle, photoshoot, detail, and marketplace
+                export — created from your existing Odoo product photos and written back to the product.
+            </p>
+        </div>
+    </div>
+</section>
+
+<section class="container mb-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="alert alert-warning border p-3">
+                <strong>External service.</strong>
+                Image generation requires connection to the external Photostudio.io service and valid
+                API credentials. The Odoo module itself installs and runs without an activation key.
+                The API key authenticates to the Photostudio Jobs API and does not unlock or license
+                this addon. Photostudio credits are billed separately, not by Odoo.
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="container mb-4">
+    <div class="row">
+        <div class="col-md-6">
+            <h3 class="h5 font-weight-bold">What it does</h3>
+            <ul>
+                <li>Ghost mannequin, on-model, lifestyle (core set)</li>
+                <li>Flatlay, photoshoot, detail, marketplace export</li>
+                <li>Batch wizard with credit estimate and replace-main confirmation</li>
+                <li>Jobs list, polling cron, optional signed webhooks</li>
+                <li>Writeback to product templates and variants</li>
+            </ul>
+        </div>
+        <div class="col-md-6">
+            <h3 class="h5 font-weight-bold">What it does not do</h3>
+            <ul>
+                <li>It does not run AI models on your Odoo server</li>
+                <li>It does not include Photostudio credits or hosting</li>
+                <li>Marketplace export is a canvas reframe, not a full marketplace listing</li>
+            </ul>
+        </div>
+    </div>
+</section>
+
+<section class="container mb-4">
+    <div class="row">
+        <div class="col-md-4 mb-3">
+            <img class="img-fluid border" src="screenshot_product.png" alt="Product form generation actions"/>
+            <p class="text-muted small mt-2">Generate from a product or variant form</p>
+        </div>
+        <div class="col-md-4 mb-3">
+            <img class="img-fluid border" src="screenshot_wizard.png" alt="Batch wizard with external processing confirmation"/>
+            <p class="text-muted small mt-2">Batch wizard with explicit opt-in before upload</p>
+        </div>
+        <div class="col-md-4 mb-3">
+            <img class="img-fluid border" src="screenshot_jobs.png" alt="Photostudio Jobs list"/>
+            <p class="text-muted small mt-2">Track job status and writeback in Odoo</p>
+        </div>
+    </div>
+</section>
+
+<section class="container mb-4">
+    <div class="row">
+        <div class="col-12">
+            <h3 class="h5 font-weight-bold">Data sent to Photostudio</h3>
+            <p>
+                When you confirm generation, the module sends:
+            </p>
+            <ul>
+                <li>Selected product or variant main image</li>
+                <li>Extra gallery images when that option is enabled</li>
+                <li>Job options such as operation, pose, scene, background prompt, and optional model catalog id</li>
+            </ul>
+            <p>
+                Photostudio returns generated image files that Odoo downloads and stores on the product.
+                The wizard requires explicit confirmation before the first upload of a batch.
+            </p>
+            <p>
+                Support: <a href="mailto:support@photostudio.io">support@photostudio.io</a>
+            </p>
+        </div>
+    </div>
+</section>

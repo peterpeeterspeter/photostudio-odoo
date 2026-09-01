@@ -1,0 +1,23 @@
+{
+    "name": "Photostudio Connector",
+    "summary": "Generate fashion product images directly from Odoo products.",
+    "version": "19.0.1.0.0",
+    "category": "Sales/Sales",
+    "author": "Photostudio",
+    "website": "https://photostudio.io",
+    "support": "support@photostudio.io",
+    "license": "LGPL-3",
+    "depends": ["product"],
+    "data": [
+        "security/ir.model.access.csv",
+        "data/ir_cron.xml",
+        "views/photostudio_job_views.xml",
+        "views/res_config_settings_views.xml",
+        "views/product_template_views.xml",
+        "views/photostudio_generate_wizard_views.xml",
+        "views/photostudio_menus.xml",
+    ],
+    "post_init_hook": "post_init_hook",
+    "application": True,
+    "installable": True,
+}

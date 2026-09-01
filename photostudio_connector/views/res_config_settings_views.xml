@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.photostudio.connector</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app data-string="Photostudio" string="Photostudio" name="photostudio_connector">
+                    <block title="External service">
+                        <setting string="Data sent to Photostudio">
+                            <div class="text-muted">
+                                Generation runs on Photostudio, not in Odoo. Confirming a job uploads
+                                selected product or variant images (main image and optional gallery
+                                references), plus job options, to the configured Jobs API. Generated
+                                files are downloaded back into Odoo. Credits are billed by Photostudio.
+                                <a href="https://photostudio.io/privacy" target="_blank" rel="noopener">
+                                    Photostudio privacy policy
+                                </a>
+                            </div>
+                        </setting>
+                        <setting string="Service credentials">
+                            <div class="text-muted">
+                                Image generation requires connection to the external Photostudio.io
+                                service and valid API credentials. This module installs and runs
+                                without an activation key. The API key below authenticates to the
+                                Jobs API only; it does not unlock or license this addon.
+                            </div>
+                        </setting>
+                    </block>
+                    <block title="API">
+                        <setting string="Photostudio API URL">
+                            <field name="photostudio_api_url" placeholder="https://api.photostudio.io/functions/v1/api-jobs"/>
+                        </setting>
+                        <setting string="API Key (Jobs API credential)">
+                            <field name="photostudio_api_key" password="True" placeholder="ps_live_..."/>
+                            <div class="text-muted">
+                                Optional until you run Generate. Without a key, Settings and Jobs views
+                                still work; generation shows a configuration error.
+                            </div>
+                        </setting>
+                        <setting string="Workspace">
+                            <field name="photostudio_workspace" placeholder="default"/>
+                        </setting>
+                    </block>
+                    <block title="Generation Defaults">
+                        <setting string="Replace Strategy">
+                            <field name="photostudio_replace_strategy"/>
+                        </setting>
+                        <setting string="Auto Publish">
+                            <field name="photostudio_auto_publish"/>
+                        </setting>
+                        <setting string="Extra Gallery References">
+                            <field name="photostudio_use_extra_media"/>
+                        </setting>
+                        <setting string="Priority">
+                            <field name="photostudio_priority"/>
+                        </setting>
+                    </block>
+                    <block title="Runtime">
+                        <setting string="Use Webhooks">
+                            <field name="photostudio_use_webhook"/>
+                            <div class="text-muted">
+                                Requires HTTPS web.base.url and the whsec signing secret from API key creation.
+                            </div>
+                        </setting>
+                        <setting string="Webhook Signing Secret">
+                            <field name="photostudio_webhook_secret" password="True" placeholder="whsec_..."/>
+                        </setting>
+                        <setting string="Timeout">
+                            <field name="photostudio_timeout"/>
+                        </setting>
+                        <setting string="Polling Interval">
+                            <field name="photostudio_poll_interval"/>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+</odoo>

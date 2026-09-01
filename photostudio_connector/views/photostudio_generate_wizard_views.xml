@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_photostudio_generate_wizard_form" model="ir.ui.view">
+        <field name="name">photostudio.generate.wizard.form</field>
+        <field name="model">photostudio.generate.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Generate Images">
+                <sheet>
+                    <group>
+                        <field name="product_count" readonly="1"/>
+                        <field name="product_ids" widget="many2many_tags" readonly="1" invisible="variant_ids"/>
+                        <field name="variant_ids" widget="many2many_tags" readonly="1" invisible="not variant_ids"/>
+                        <field name="estimated_credits" readonly="1"/>
+                        <field name="estimated_assets" readonly="1"/>
+                        <field name="batch_size_warning" readonly="1" invisible="not batch_size_warning"/>
+                    </group>
+                    <group>
+                        <field name="operation" widget="radio"/>
+                        <field name="core_set_help" readonly="1" invisible="operation != 'all'"/>
+                        <field name="replace_strategy" widget="radio"/>
+                        <field name="confirm_replace_main" invisible="replace_strategy != 'replace_main'"/>
+                        <field name="auto_publish"/>
+                        <field name="use_extra_media"/>
+                        <field name="priority"/>
+                        <field name="model_preset" invisible="operation not in ('product_image.on_model', 'product_image.lifestyle', 'product_image.photoshoot', 'all')"/>
+                        <field name="pose" invisible="operation not in ('product_image.on_model', 'product_image.photoshoot', 'all')"/>
+                        <field name="scene_preset" invisible="operation not in ('product_image.lifestyle', 'all')"/>
+                        <field name="background_prompt" invisible="operation != 'product_image.photoshoot'"/>
+                        <field name="model_catalog_id" invisible="operation not in ('product_image.on_model', 'product_image.lifestyle', 'product_image.photoshoot', 'all')"/>
+                        <field name="regenerate_nonce"/>
+                        <field name="confirm_external_processing"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_confirm" type="object" string="Generate Images" class="btn-primary"/>
+                    <button string="Cancel" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>
