@@ -99,11 +99,21 @@ class TestPhotostudioConnectorTransaction(TransactionCase):
         service._apply_job_payload(job, payload)
         job.invalidate_recordset()
         self.assertEqual(job.writeback_state, "attached")
-        self.assertTrue(
-            self.env["product.image"].sudo().search_count(
-                [("product_tmpl_id", "=", self.product.id)]
+        if "product.image" in self.env.registry:
+            self.assertTrue(
+                self.env["product.image"].sudo().search_count(
+                    [("product_tmpl_id", "=", self.product.id)]
+                )
             )
-        )
+        else:
+            self.assertTrue(
+                self.env["ir.attachment"].sudo().search_count(
+                    [
+                        ("res_model", "=", "product.template"),
+                        ("res_id", "=", self.product.id),
+                    ]
+                )
+            )
 
     def test_unique_job_id_race_creates_one_row(self):
         service = self.env["photostudio.connector.service"]

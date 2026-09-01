@@ -21,14 +21,36 @@ class PhotostudioImageService(models.AbstractModel):
     @api.model
     def append_gallery(self, product, image_bytes, name=None):
         template = product.product_tmpl_id if product._name == "product.product" else product
-        image_model = self.env["product.image"]
-        image_model.create(
+        filename = name or f"Photostudio {product.display_name}"
+        encoded = self._encode_binary(image_bytes)
+        if self._has_product_image_model():
+            self.env["product.image"].create(
+                {
+                    "name": filename,
+                    "product_tmpl_id": template.id,
+                    "image_1920": encoded,
+                }
+            )
+            return
+        self.env["ir.attachment"].create(
             {
-                "name": name or f"Photostudio {product.display_name}",
-                "product_tmpl_id": template.id,
-                "image_1920": self._encode_binary(image_bytes),
+                "name": filename,
+                "res_model": template._name,
+                "res_id": template.id,
+                "datas": encoded,
+                "mimetype": "image/png",
             }
         )
+
+    def _has_product_image_model(self):
+        return "product.image" in self.env.registry
+
+    def _gallery_images(self, template):
+        if not self._has_product_image_model():
+            return []
+        if "product_template_image_ids" not in template._fields:
+            return []
+        return template.product_template_image_ids
 
     def _extract_template(self, product):
         images = []
@@ -41,8 +63,7 @@ class PhotostudioImageService(models.AbstractModel):
                 )
             )
 
-        gallery_images = getattr(product, "product_template_image_ids", False)
-        for index, image in enumerate(gallery_images or self.env["product.image"]):
+        for index, image in enumerate(self._gallery_images(product)):
             if not image.image_1920:
                 continue
             images.append(
@@ -73,7 +94,7 @@ class PhotostudioImageService(models.AbstractModel):
                 )
             )
         template = variant.product_tmpl_id
-        for index, image in enumerate(template.product_template_image_ids):
+        for index, image in enumerate(self._gallery_images(template)):
             if not image.image_1920:
                 continue
             images.append(
