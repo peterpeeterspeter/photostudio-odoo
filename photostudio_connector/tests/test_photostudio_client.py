@@ -103,6 +103,26 @@ class TestPhotostudioClient(unittest.TestCase):
         with self.assertRaisesRegex(UserError, "JOB is already terminal|already terminal"):
             self.client.cancel_job("job-1")
 
+    def test_missing_api_key_raises_configuration_error(self):
+        class EmptyKeyParams:
+            def sudo(self):
+                return self
+
+            def get_param(self, key):
+                values = {
+                    "photostudio_connector.api_url": "https://jobs.example.test",
+                    "photostudio_connector.api_key": "",
+                    "photostudio_connector.timeout": "30",
+                }
+                return values.get(key)
+
+        self.client.env = {"ir.config_parameter": EmptyKeyParams()}
+
+        with self.assertRaisesRegex(
+            UserError, "Configure a Photostudio API key before generating images"
+        ):
+            self.client.create_job_batch({"items": []}, "test-key")
+
 
 if __name__ == "__main__":
     unittest.main()
