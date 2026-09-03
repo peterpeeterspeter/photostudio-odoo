@@ -32,7 +32,7 @@ Photostudio returns generated image files that Odoo downloads and stores on the 
 
 Privacy policy: https://photostudio.io/privacy
 
-Support: support@photostudio.io
+Support: peter@photostudio.io
 
 ## Operations
 

@@ -1,11 +1,12 @@
 {
     "name": "Photostudio Connector",
-    "summary": "Generate fashion product images directly from Odoo products.",
+    "summary": "Catalog photos from the garment you already shot. Ghost, on-model, lifestyle, and more, written back to the product.",
+    "images": ["static/description/banner.png"],
     "version": "19.0.1.0.1",
     "category": "Sales/Sales",
     "author": "Photostudio",
     "website": "https://photostudio.io",
-    "support": "support@photostudio.io",
+    "support": "peter@photostudio.io",
     "license": "LGPL-3",
     "depends": ["product"],
     "data": [

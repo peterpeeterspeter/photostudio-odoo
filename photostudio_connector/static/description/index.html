@@ -1,89 +1,172 @@
-<section class="container">
-    <div class="row mt-4 mb-4">
-        <div class="col-12 text-center">
-            <img class="img-fluid mb-3" src="banner.png" alt="Photostudio Connector"/>
-            <h2 class="font-weight-bold">Generate product images from Odoo</h2>
-            <p class="text-muted">
-                Ghost mannequin, flatlay, on-model, lifestyle, photoshoot, detail, and marketplace
-                export — created from your existing Odoo product photos and written back to the product.
-            </p>
+<section class="oe_container">
+    <div class="oe_row oe_spaced">
+        <h2 class="oe_slogan">Catalog photos from the garment you already shot.</h2>
+        <h3 class="oe_slogan">
+            Open a product, pick a format, send the existing photo to Photostudio.
+            Ghost, on-model, lifestyle, and more come back onto that same product.
+        </h3>
+        <p class="text-center text-muted">
+            Odoo 19, Community and Enterprise. Photostudio Jobs API. Credits billed by Photostudio, not by Odoo.
+        </p>
+        <p class="text-center">
+            <span class="badge badge-secondary">Ghost</span>
+            <span class="badge badge-secondary">On-model</span>
+            <span class="badge badge-secondary">Lifestyle</span>
+            <span class="badge badge-secondary">Flatlay</span>
+            <span class="badge badge-secondary">Photoshoot</span>
+            <span class="badge badge-secondary">Detail</span>
+            <span class="badge badge-secondary">Marketplace reframe</span>
+        </p>
+        <div class="oe_demo oe_screenshot">
+            <img class="img img-fluid" src="banner.png" alt="Photostudio Connector cover"/>
         </div>
     </div>
 </section>
 
-<section class="container mb-4">
-    <div class="row">
-        <div class="col-12">
-            <div class="alert alert-warning border p-3">
-                <strong>External service.</strong>
-                Image generation requires connection to the external Photostudio.io service and valid
-                API credentials. The Odoo module itself installs and runs without an activation key.
-                The API key authenticates to the Photostudio Jobs API and does not unlock or license
-                this addon. Photostudio credits are billed separately, not by Odoo.
-            </div>
-        </div>
+<section class="oe_container">
+    <div class="oe_row oe_spaced">
+        <h2 class="oe_slogan">What it does</h2>
+        <h3 class="oe_slogan">Fashion catalog jobs, from the product form, not a blank prompt.</h3>
+        <p>
+            This is not a text-to-image studio that invents a chair from the product name.
+            It takes the photo on the product (or variant), runs a Photostudio job, and writes
+            the result back when the job finishes.
+        </p>
+        <ul>
+            <li>Generate buttons on the product template and on the variant.</li>
+            <li>A batch wizard for several products, with a credit estimate and a replace-main confirm.</li>
+            <li>Core set in one go: ghost, on-model, lifestyle. Flatlay, photoshoot, detail, and marketplace reframe as separate jobs.</li>
+            <li>A Photostudio Jobs list so you can see queued, running, done, and failed work.</li>
+            <li>Polling by default. Optional signed webhooks if you paste a whsec_ secret and your Odoo URL is public HTTPS.</li>
+        </ul>
     </div>
 </section>
 
-<section class="container mb-4">
-    <div class="row">
-        <div class="col-md-6">
-            <h3 class="h5 font-weight-bold">What it does</h3>
-            <ul>
-                <li>Ghost mannequin, on-model, lifestyle (core set)</li>
-                <li>Flatlay, photoshoot, detail, marketplace export</li>
-                <li>Batch wizard with credit estimate and replace-main confirmation</li>
-                <li>Jobs list, polling cron, optional signed webhooks</li>
-                <li>Writeback to product templates and variants</li>
-            </ul>
-        </div>
-        <div class="col-md-6">
-            <h3 class="h5 font-weight-bold">What it does not do</h3>
-            <ul>
-                <li>It does not run AI models on your Odoo server</li>
-                <li>It does not include Photostudio credits or hosting</li>
-                <li>Marketplace export is a canvas reframe, not a full marketplace listing</li>
-            </ul>
-        </div>
+<section class="oe_container">
+    <div class="oe_row oe_spaced">
+        <h2 class="oe_slogan">What it does not do</h2>
+        <ul>
+            <li>It does not run AI models on your Odoo server.</li>
+            <li>It does not include Photostudio credits. You need a Photostudio account and API key to generate.</li>
+            <li>It does not build a prompt from category text and then draw a new product. The source of truth is the photo you already have.</li>
+            <li>Marketplace export is a canvas reframe, not a full marketplace listing pack.</li>
+            <li>Background removal is not a free local rembg tool. Ghost and catalog looks are Photostudio jobs.</li>
+        </ul>
     </div>
 </section>
 
-<section class="container mb-4">
-    <div class="row">
-        <div class="col-md-4 mb-3">
-            <img class="img-fluid border" src="screenshot_product.png" alt="Product form generation actions"/>
-            <p class="text-muted small mt-2">Generate from a product or variant form</p>
+<section class="oe_container">
+    <div class="oe_row oe_spaced">
+        <h2 class="oe_slogan">Install</h2>
+        <p>
+            Find Photostudio Connector in Apps and install it. Settings get a Photostudio tab.
+            Product forms get generate actions. A Photostudio menu lists jobs. No extra desktop to learn.
+        </p>
+        <div class="oe_demo oe_screenshot">
+            <img class="img img-fluid" src="screenshot_product.png" alt="Generate actions on the Odoo product form"/>
         </div>
-        <div class="col-md-4 mb-3">
-            <img class="img-fluid border" src="screenshot_wizard.png" alt="Batch wizard with external processing confirmation"/>
-            <p class="text-muted small mt-2">Batch wizard with explicit opt-in before upload</p>
-        </div>
-        <div class="col-md-4 mb-3">
-            <img class="img-fluid border" src="screenshot_jobs.png" alt="Photostudio Jobs list"/>
-            <p class="text-muted small mt-2">Track job status and writeback in Odoo</p>
-        </div>
+        <p class="text-muted">Product form. Generate lives next to the product you already edit.</p>
     </div>
 </section>
 
-<section class="container mb-4">
-    <div class="row">
-        <div class="col-12">
-            <h3 class="h5 font-weight-bold">Data sent to Photostudio</h3>
-            <p>
-                When you confirm generation, the module sends:
-            </p>
-            <ul>
-                <li>Selected product or variant main image</li>
-                <li>Extra gallery images when that option is enabled</li>
-                <li>Job options such as operation, pose, scene, background prompt, and optional model catalog id</li>
-            </ul>
-            <p>
-                Photostudio returns generated image files that Odoo downloads and stores on the product.
-                The wizard requires explicit confirmation before the first upload of a batch.
-            </p>
-            <p>
-                Support: <a href="mailto:support@photostudio.io">support@photostudio.io</a>
-            </p>
+<section class="oe_container">
+    <div class="oe_row oe_spaced">
+        <h2 class="oe_slogan">Configure</h2>
+        <p>
+            Open Settings, Photostudio. Paste your Jobs API URL and API key when you are ready to generate.
+            The module installs without a key. Generate shows a clear configuration error until the key is set.
+        </p>
+        <p>
+            Good to know: the key authenticates to Photostudio. It does not unlock or license this Odoo addon.
+        </p>
+    </div>
+</section>
+
+<section class="oe_container">
+    <div class="oe_row oe_spaced">
+        <h2 class="oe_slogan">The wizard</h2>
+        <p>
+            Pick products, pick operations, see a credit estimate. Before the first upload of a batch you
+            confirm that selected photos may be sent to Photostudio. If you choose to replace the main image,
+            you confirm that too. Identical requests are skipped instead of billed twice.
+        </p>
+        <div class="oe_demo oe_screenshot">
+            <img class="img img-fluid" src="screenshot_wizard.png" alt="Batch wizard with opt-in before upload"/>
         </div>
+        <p class="text-muted">Batch wizard. Opt-in before photos leave Odoo.</p>
+    </div>
+</section>
+
+<section class="oe_container">
+    <div class="oe_row oe_spaced">
+        <h2 class="oe_slogan">Jobs and writeback</h2>
+        <p>
+            Work is asynchronous. Odoo polls Photostudio and attaches finished files to the product or variant.
+            Open Photostudio, Jobs to see status without leaving Odoo.
+        </p>
+        <div class="oe_demo oe_screenshot">
+            <img class="img img-fluid" src="screenshot_jobs.png" alt="Photostudio Jobs list in Odoo"/>
+        </div>
+        <p class="text-muted">Jobs list. Queued, running, done, failed.</p>
+    </div>
+</section>
+
+<section class="oe_container">
+    <div class="oe_row oe_spaced">
+        <h2 class="oe_slogan">Per variant</h2>
+        <p>
+            Open a single variant and generate from that variant's own photo. Writeback targets that variant.
+            Other variants stay as they were.
+        </p>
+    </div>
+</section>
+
+<section class="oe_container">
+    <div class="oe_row oe_spaced">
+        <h2 class="oe_slogan">Safe by default</h2>
+        <ul>
+            <li>Explicit opt-in before the first batch upload.</li>
+            <li>Replace-main is a separate confirm, so a live catalog photo is not swapped by accident.</li>
+            <li>Native product and variant image fields. Results show wherever Odoo already shows a product photo.</li>
+            <li>Polling keeps generation off your Odoo worker. Optional webhooks if you want push instead of poll.</li>
+        </ul>
+    </div>
+</section>
+
+<section class="oe_container">
+    <div class="oe_row oe_spaced">
+        <h2 class="oe_slogan">Privacy and data</h2>
+        <p>Read this before you install. It matters for GDPR and for your own data rules.</p>
+        <p>
+            <strong>Generation sends data out.</strong>
+            When you confirm, the module sends the selected product or variant main image, extra gallery
+            images if that option is on, and job options (operation, pose, scene, background prompt, optional
+            model catalog id). That request leaves your Odoo server and is handled by Photostudio under
+            Photostudio terms. Do not send photos you are not allowed to share.
+        </p>
+        <p>
+            <strong>About your API key.</strong>
+            The key is stored in Odoo settings. An administrator can still read it. Only enter a key you are
+            allowed to use, and remove it if you uninstall the app.
+        </p>
+        <p>
+            Support: <a href="mailto:peter@photostudio.io">peter@photostudio.io</a>
+        </p>
+    </div>
+</section>
+
+<section class="oe_container">
+    <div class="oe_row oe_spaced">
+        <h2 class="oe_slogan">Questions</h2>
+        <p><strong>Do I need an API key?</strong><br/>
+            Yes, a Photostudio Jobs API key, to generate. The Odoo app itself installs without one.</p>
+        <p><strong>Will it overwrite my current product photo?</strong><br/>
+            Only if you choose replace-main and confirm. Otherwise generated files are attached without silently replacing the live main image.</p>
+        <p><strong>Is my data sent anywhere?</strong><br/>
+            Yes, to Photostudio, after you confirm. Photos and job options leave your server. There is no local on-server model.</p>
+        <p><strong>Which Odoo versions and editions?</strong><br/>
+            Odoo 19, Community and Enterprise. Depends on the product app only. No website_sale required.</p>
+        <p><strong>Does it invent a photo from the product name?</strong><br/>
+            No. It starts from the garment photo on the record. That is the point of a fashion catalog connector.</p>
     </div>
 </section>
