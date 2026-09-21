@@ -6,16 +6,16 @@
         <field name="inherit_id" ref="product.product_template_form_view"/>
         <field name="arch" type="xml">
             <xpath expr="//notebook" position="inside">
-                <page string="Photostudio" name="photostudio_connector">
+                <page string="Photostudio" name="photostudio_connector" groups="photostudio_connector.group_photostudio_user">
                     <group>
                         <group string="Generate Images">
-                            <button name="action_photostudio_generate_ghost" type="object" string="Generate Ghost Mannequin" class="btn-primary"/>
-                            <button name="action_photostudio_generate_on_model" type="object" string="Generate On-model"/>
-                            <button name="action_photostudio_generate_lifestyle" type="object" string="Generate Lifestyle"/>
-                            <button name="action_photostudio_generate_flatlay" type="object" string="Generate Flatlay"/>
-                            <button name="action_photostudio_generate_photoshoot" type="object" string="Generate Photoshoot"/>
-                            <button name="action_photostudio_generate_detail" type="object" string="Generate Detail"/>
-                            <button name="action_photostudio_generate_campaign" type="object" string="Marketplace Export"/>
+                            <button name="action_photostudio_generate_ghost" type="object" groups="photostudio_connector.group_photostudio_user" string="Generate Ghost Mannequin" class="btn-primary"/>
+                            <button name="action_photostudio_generate_on_model" type="object" groups="photostudio_connector.group_photostudio_user" string="Generate On-model"/>
+                            <button name="action_photostudio_generate_lifestyle" type="object" groups="photostudio_connector.group_photostudio_user" string="Generate Lifestyle"/>
+                            <button name="action_photostudio_generate_flatlay" type="object" groups="photostudio_connector.group_photostudio_user" string="Generate Flatlay"/>
+                            <button name="action_photostudio_generate_photoshoot" type="object" groups="photostudio_connector.group_photostudio_user" string="Generate Photoshoot"/>
+                            <button name="action_photostudio_generate_detail" type="object" groups="photostudio_connector.group_photostudio_user" string="Generate Detail"/>
+                            <button name="action_photostudio_generate_campaign" type="object" groups="photostudio_connector.group_photostudio_user" string="Marketplace Export"/>
                         </group>
                         <group string="Status">
                             <field name="photostudio_sync_state"/>
@@ -35,16 +35,16 @@
         <field name="inherit_id" ref="product.product_normal_form_view"/>
         <field name="arch" type="xml">
             <xpath expr="//notebook" position="inside">
-                <page string="Photostudio" name="photostudio_connector">
+                <page string="Photostudio" name="photostudio_connector" groups="photostudio_connector.group_photostudio_user">
                     <group>
                         <group string="Generate Images">
-                            <button name="action_photostudio_generate_ghost" type="object" string="Generate Ghost Mannequin" class="btn-primary"/>
-                            <button name="action_photostudio_generate_on_model" type="object" string="Generate On-model"/>
-                            <button name="action_photostudio_generate_lifestyle" type="object" string="Generate Lifestyle"/>
-                            <button name="action_photostudio_generate_flatlay" type="object" string="Generate Flatlay"/>
-                            <button name="action_photostudio_generate_photoshoot" type="object" string="Generate Photoshoot"/>
-                            <button name="action_photostudio_generate_detail" type="object" string="Generate Detail"/>
-                            <button name="action_photostudio_generate_campaign" type="object" string="Marketplace Export"/>
+                            <button name="action_photostudio_generate_ghost" type="object" groups="photostudio_connector.group_photostudio_user" string="Generate Ghost Mannequin" class="btn-primary"/>
+                            <button name="action_photostudio_generate_on_model" type="object" groups="photostudio_connector.group_photostudio_user" string="Generate On-model"/>
+                            <button name="action_photostudio_generate_lifestyle" type="object" groups="photostudio_connector.group_photostudio_user" string="Generate Lifestyle"/>
+                            <button name="action_photostudio_generate_flatlay" type="object" groups="photostudio_connector.group_photostudio_user" string="Generate Flatlay"/>
+                            <button name="action_photostudio_generate_photoshoot" type="object" groups="photostudio_connector.group_photostudio_user" string="Generate Photoshoot"/>
+                            <button name="action_photostudio_generate_detail" type="object" groups="photostudio_connector.group_photostudio_user" string="Generate Detail"/>
+                            <button name="action_photostudio_generate_campaign" type="object" groups="photostudio_connector.group_photostudio_user" string="Marketplace Export"/>
                         </group>
                         <group string="Status">
                             <field name="photostudio_sync_state"/>
@@ -66,5 +66,6 @@
         <field name="binding_model_id" ref="product.model_product_template"/>
         <field name="binding_type">action</field>
         <field name="binding_view_types">list,form</field>
+        <field name="group_ids" eval="[(4, ref('photostudio_connector.group_photostudio_user'))]"/>
     </record>
 </odoo>

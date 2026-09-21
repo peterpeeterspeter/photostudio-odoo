@@ -1,0 +1,14 @@
+<odoo>
+    <record id="group_photostudio_user" model="res.groups">
+        <field name="name">Photostudio Connector User</field>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+    </record>
+    <record id="base.group_system" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('photostudio_connector.group_photostudio_user'))]"/>
+    </record>
+    <record id="photostudio_job_company_rule" model="ir.rule">
+        <field name="name">Photostudio jobs: company isolation</field>
+        <field name="model_id" ref="model_photostudio_job"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+</odoo>

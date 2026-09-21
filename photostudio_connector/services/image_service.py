@@ -20,14 +20,14 @@ class PhotostudioImageService(models.AbstractModel):
 
     @api.model
     def append_gallery(self, product, image_bytes, name=None):
-        template = product.product_tmpl_id if product._name == "product.product" else product
+        relation = "product_variant_id" if product._name == "product.product" else "product_tmpl_id"
         filename = name or f"Photostudio {product.display_name}"
         encoded = self._encode_binary(image_bytes)
         if self._has_product_image_model():
             self.env["product.image"].create(
                 {
                     "name": filename,
-                    "product_tmpl_id": template.id,
+                    relation: product.id,
                     "image_1920": encoded,
                 }
             )
@@ -35,8 +35,8 @@ class PhotostudioImageService(models.AbstractModel):
         self.env["ir.attachment"].create(
             {
                 "name": filename,
-                "res_model": template._name,
-                "res_id": template.id,
+                "res_model": product._name,
+                "res_id": product.id,
                 "datas": encoded,
                 "mimetype": "image/png",
             }
@@ -94,7 +94,11 @@ class PhotostudioImageService(models.AbstractModel):
                 )
             )
         template = variant.product_tmpl_id
-        for index, image in enumerate(self._gallery_images(template)):
+        variant_images = (
+            list(variant.product_variant_image_ids)
+            if "product_variant_image_ids" in variant._fields else []
+        )
+        for index, image in enumerate(variant_images + list(self._gallery_images(template))):
             if not image.image_1920:
                 continue
             images.append(

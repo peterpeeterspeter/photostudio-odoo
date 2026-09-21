@@ -6,7 +6,7 @@
         <field name="inherit_id" ref="base.res_config_settings_view_form"/>
         <field name="arch" type="xml">
             <xpath expr="//form" position="inside">
-                <app data-string="Photostudio" string="Photostudio" name="photostudio_connector">
+                <app data-string="Photostudio" string="Photostudio" name="photostudio_connector" groups="base.group_system">
                     <block title="External service">
                         <setting string="Data sent to Photostudio">
                             <div class="text-muted">
@@ -47,8 +47,13 @@
                         <setting string="Replace Strategy">
                             <field name="photostudio_replace_strategy"/>
                         </setting>
-                        <setting string="Auto Publish">
-                            <field name="photostudio_auto_publish"/>
+                        <setting string="Publish product after automatic image writeback">
+                            <field name="photostudio_auto_publish" string="Publish product after automatic image writeback"/>
+                            <div class="text-warning">
+                                Generated images are automatically applied, including to already-published
+                                products. This is not a review or approval gate. Leaving this unchecked
+                                does not delay image changes; it only avoids publishing an unpublished product.
+                            </div>
                         </setting>
                         <setting string="Extra Gallery References">
                             <field name="photostudio_use_extra_media"/>

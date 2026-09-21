@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <menuitem id="menu_photostudio_root" name="Photostudio" sequence="65"/>
-    <menuitem id="menu_photostudio_jobs" name="Jobs" parent="menu_photostudio_root" action="action_photostudio_jobs" sequence="10"/>
-    <menuitem id="menu_photostudio_settings" name="Settings" parent="menu_photostudio_root" action="base.res_config_setting_act_window" sequence="90"/>
+    <menuitem id="menu_photostudio_root" name="Photostudio" sequence="65" groups="photostudio_connector.group_photostudio_user"/>
+    <menuitem id="menu_photostudio_jobs" name="Jobs" parent="menu_photostudio_root" action="action_photostudio_jobs" sequence="10" groups="photostudio_connector.group_photostudio_user"/>
+    <menuitem id="menu_photostudio_settings" name="Settings" parent="menu_photostudio_root" action="base.res_config_setting_act_window" sequence="90" groups="base.group_system"/>
 </odoo>

@@ -1,8 +1,8 @@
 import base64
 import uuid
 
-from odoo import api, fields, models
-from odoo.exceptions import UserError
+from odoo import SUPERUSER_ID, api, fields, models
+from odoo.exceptions import AccessError, UserError
 from psycopg2 import IntegrityError
 
 from ..utils.download_errors import PhotostudioDownloadError
@@ -36,6 +36,73 @@ class PhotostudioConnectorService(models.AbstractModel):
 
     MAX_DOWNLOAD_ATTEMPTS = MAX_DOWNLOAD_ATTEMPTS
 
+    def _check_connector_access(self):
+        if not self.env.su and (not self.env.user.active or not self.env.user.has_group(
+            "photostudio_connector.group_photostudio_user"
+        )):
+            raise AccessError("Photostudio connector permission is required.")
+
+    def _authorize_products(self, records):
+        self._check_connector_access()
+        if records._name not in ("product.template", "product.product"):
+            raise AccessError("Only product templates and variants are supported.")
+        # Never inherit sudo from a caller-supplied recordset.
+        records = records.with_env(self.env)
+        if records.exists() != records:
+            raise AccessError("The target product no longer exists.")
+        records.check_access("read")
+        records.check_access("write")
+        if records._name == "product.product":
+            records.product_tmpl_id.check_access("read")
+            records.product_tmpl_id.check_access("write")
+        return records
+
+    def _authorize_job(self, job):
+        self._check_connector_access()
+        if job._name != "photostudio.job":
+            raise AccessError("Invalid Photostudio job.")
+        job = job.with_env(self.env)
+        job.ensure_one()
+        job.check_access("read")
+        trusted = job.sudo()
+        trusted._check_target_consistency()
+        requester = trusted.requesting_user_id
+        # Odoo's technical superuser is intentionally inactive, but remains a
+        # valid explicit server-side requester (including synthetic test jobs).
+        if not requester or (not requester.active and requester.id != SUPERUSER_ID) or not trusted.company_id:
+            raise AccessError("This legacy job has no trusted requesting user and company.")
+        requester_service = self.with_user(requester).with_context(
+            {}, allowed_company_ids=[trusted.company_id.id]
+        )
+        if not requester_service.env.su and trusted.company_id not in requester.company_ids:
+            raise AccessError("The requesting user no longer has access to this company.")
+        target = trusted.product_id or trusted.product_tmpl_id
+        target = requester_service._authorize_products(target)
+        if not self.env.su:
+            self._authorize_products(target)
+        return target
+
+    def _authorized_batch_jobs(self, batch_id):
+        self._check_connector_access()
+        jobs = self.env["photostudio.job"].sudo().search([("batch_id", "=", batch_id)]) if batch_id else self.env["photostudio.job"]
+        if not jobs:
+            raise AccessError("No authorized local batch exists.")
+        for job in jobs:
+            if job.authorization_blocked:
+                raise AccessError("A batch member requires explicit authorization revalidation.")
+            self._authorize_job(job)
+        return jobs.with_env(self.env)
+
+    def _submission_target_values(self, product_tmpl, product_id=False):
+        product_tmpl = self._authorize_products(product_tmpl)
+        product_tmpl.ensure_one()
+        if product_id:
+            variant = self._authorize_products(self.env["product.product"].browse(product_id))
+            if variant.product_tmpl_id != product_tmpl:
+                raise AccessError("The variant does not belong to the requested template.")
+        return {"requesting_user_id": self.env.uid,
+                "company_id": product_tmpl.company_id.id or self.env.company.id}
+
     @api.model
     def enqueue_generation(
         self,
@@ -48,6 +115,7 @@ class PhotostudioConnectorService(models.AbstractModel):
         generation_options=None,
         regenerate_nonce=0,
     ):
+        records = self._authorize_products(records)
         if not records:
             raise UserError("Select at least one product.")
         requested_operations = expand_requested_operations(operation)
@@ -152,7 +220,7 @@ class PhotostudioConnectorService(models.AbstractModel):
             self._enforce_batch_byte_budget(post_body)
 
             try:
-                response = client.create_job_batch(post_body, key)
+                response = client._create_job_batch(post_body, key)
             except UserError as error:
                 for candidate in chunk:
                     self._create_error_job(
@@ -242,24 +310,30 @@ class PhotostudioConnectorService(models.AbstractModel):
 
     @api.model
     def poll_job(self, job):
-        payload = self.env["photostudio.client"].get_job(job.job_id)
+        self._authorize_job(job)
+        payload = self.env["photostudio.client"]._get_job(job.job_id)
         self._apply_job_payload(job, payload)
         return job
 
     @api.model
     def poll_job_isolated(self, job):
+        self._authorize_job(job)
         try:
-            payload = self.env["photostudio.client"].get_job(job.job_id)
-        except UserError:
+            payload = self.env["photostudio.client"]._get_job(job.job_id)
+        except AccessError:
+            raise
+        except Exception:
+            self._record_refresh_failure(job)
             return
-        self._apply_job_payload(job, payload)
+        self._apply_payload_isolated(job, payload)
 
     @api.model
     def poll_batch(self, batch_id):
-        payload = self.env["photostudio.client"].get_batch(batch_id)
+        self._authorized_batch_jobs(batch_id)
+        payload = self.env["photostudio.client"]._get_batch(batch_id)
         for job_payload in extract_batch_job_payloads(payload):
             job = self.env["photostudio.job"].search(
-                [("job_id", "=", job_payload.get("job_id"))],
+                [("job_id", "=", job_payload.get("job_id")), ("batch_id", "=", batch_id)],
                 limit=1,
             )
             if job:
@@ -268,30 +342,76 @@ class PhotostudioConnectorService(models.AbstractModel):
 
     @api.model
     def poll_batch_isolated(self, batch_id):
+        jobs = self._authorized_batch_jobs(batch_id)
         try:
-            payload = self.env["photostudio.client"].get_batch(batch_id)
-        except UserError:
+            payload = self.env["photostudio.client"]._get_batch(batch_id)
+            payloads = extract_batch_job_payloads(payload)
+        except AccessError:
+            raise
+        except Exception:
+            for job in jobs:
+                self._record_refresh_failure(job)
             return
-        for job_payload in extract_batch_job_payloads(payload):
-            job = self.env["photostudio.job"].search(
-                [("job_id", "=", job_payload.get("job_id"))],
-                limit=1,
-            )
+        for job_payload in payloads:
+            if not isinstance(job_payload, dict):
+                continue
+            job = jobs.filtered(lambda record: record.job_id == job_payload.get("job_id"))[:1]
             if job:
-                self._apply_job_payload(job, job_payload)
+                self._apply_payload_isolated(job, job_payload)
+
+    def _apply_payload_isolated(self, job, payload):
+        try:
+            with self.env.cr.savepoint():
+                self._apply_job_payload(job, payload)
+        except AccessError:
+            raise
+        except Exception:
+            self._record_refresh_failure(job)
+
+    def _record_refresh_failure(self, job):
+        if job.status == "completed" and job.writeback_state == "pending":
+            self._record_writeback_failure(job)
+        else:
+            job.sudo().write({"error_message": "Photostudio status refresh failed; it will be retried."})
 
     @api.model
     def attach_isolated(self, job):
+        self._authorize_job(job)
+        if job.writeback_state != "pending" or job.status != "completed":
+            return
+        if job.download_attempts:
+            # Read-only refresh mints current signed URLs; never generate again.
+            self.poll_job_isolated(job)
+            return
+        self._attach_outputs_isolated(job)
+        self._refresh_job_targets(job)
+
+    def _attach_outputs_isolated(self, job):
+        self._authorize_job(job)
         try:
             with self.env.cr.savepoint():
                 self._attach_ready_outputs(job)
-                self._refresh_job_targets(job)
+        except AccessError:
+            raise
         except Exception:
-            return
+            # A malformed image/stream must neither spin forever nor abort peers.
+            self._record_writeback_failure(job)
+
+    def _record_writeback_failure(self, job, status_code=None):
+        job.lock_for_update()
+        job.invalidate_recordset()
+        attempts = job.download_attempts + 1
+        job.sudo().write({
+            "download_attempts": attempts,
+            "writeback_state": "expired" if attempts >= self.MAX_DOWNLOAD_ATTEMPTS else "pending",
+            "error_message": f"Image download/writeback failed ({status_code})." if status_code else
+                             "Image download/writeback failed. Retry will refresh the download link.",
+        })
 
     @api.model
-    def cancel_job(self, job):
-        payload = self.env["photostudio.client"].cancel_job(job.job_id)
+    def _cancel_job(self, job):
+        self._authorize_job(job)
+        payload = self.env["photostudio.client"]._cancel_job(job.job_id)
         if payload.get("job"):
             self._apply_job_payload(job, payload["job"])
         return job
@@ -399,14 +519,15 @@ class PhotostudioConnectorService(models.AbstractModel):
             for item in response_items:
                 index = item.get("index")
                 candidate = None
-                if isinstance(index, int) and index < len(candidates):
+                if type(index) is int and 0 <= index < len(candidates):
                     candidate = candidates[index]
                 if item.get("job"):
                     job_payload = item["job"]
-                    if not candidate:
-                        candidate = candidate_by_key.get(
-                            self._payload_reconcile_key(job_payload)
-                        )
+                    # Replay items are reindexed over successful jobs only.
+                    # Position is not identity, even for the initial response.
+                    candidate = candidate_by_key.get(
+                        self._payload_reconcile_key(job_payload)
+                    )
                     if not candidate:
                         continue
                     created_jobs |= self._create_or_update_job(
@@ -457,8 +578,14 @@ class PhotostudioConnectorService(models.AbstractModel):
 
     def _payload_reconcile_key(self, job_payload):
         metadata = job_payload.get("metadata") or {}
+        if not isinstance(metadata, dict):
+            return None
         model = metadata.get("odoo_model") or "product.template"
         record_id = metadata.get("odoo_record_id") or metadata.get("odoo_product_id")
+        if model not in ("product.template", "product.product") or type(record_id) is not int or record_id <= 0:
+            return None
+        if not isinstance(job_payload.get("operation"), str):
+            return None
         return (model, record_id, job_payload.get("operation"))
 
     def _humanize_item_error(self, error):
@@ -503,6 +630,7 @@ class PhotostudioConnectorService(models.AbstractModel):
         batch_id,
         product_id=False,
     ):
+        self._submission_target_values(product_tmpl, product_id)
         job_model = self.env["photostudio.job"]
         job_id = payload["job_id"]
         values = self._job_values(
@@ -517,21 +645,55 @@ class PhotostudioConnectorService(models.AbstractModel):
         )
         existing = job_model.search([("job_id", "=", job_id)], limit=1)
         if existing:
-            existing.write(values)
-            self._refresh_job_targets(existing)
-            return existing
+            return self._merge_replayed_job(existing, values)
         try:
             with self.env.cr.savepoint():
-                job = job_model.create(values)
+                job = job_model.sudo().create(values).with_env(self.env)
         except IntegrityError:
             existing = job_model.search([("job_id", "=", job_id)], limit=1)
             if existing:
-                existing.write(values)
-                self._refresh_job_targets(existing)
-                return existing
+                return self._merge_replayed_job(existing, values)
             raise
         self._refresh_job_targets(job)
         return job
+
+    def _merge_replayed_job(self, job, values):
+        self._authorize_job(job)
+        job.lock_for_update()
+        job.invalidate_recordset()
+        if (job.product_tmpl_id.id != values["product_tmpl_id"]
+                or job.product_id.id != values["product_id"]
+                or job.operation != values["operation"]):
+            raise UserError("Remote job identity conflicts with its existing product or operation.")
+        # These values belong to the local submission/writeback, not to a replay.
+        for key in ("product_tmpl_id", "product_id", "operation", "writeback_state",
+                    "replace_strategy", "auto_publish", "priority", "created_at", "batch_id",
+                    "requesting_user_id", "company_id"):
+            values.pop(key, None)
+        values["metadata"] = self._merge_remote_metadata(job, values.get("metadata"))
+        if job.status in ("completed", "failed", "cancelled"):
+            values["status"] = job.status
+            values["progress"] = job.progress
+        # Use the accepted status, not a stale replay's status, for writeback.
+        if values.get("status") in ("failed", "cancelled") and job.writeback_state == "pending":
+            values["writeback_state"] = "failed"
+        # Empty remote errors carry no update to local writeback diagnostics.
+        if not values.get("errors"):
+            values.pop("errors", None)
+            values.pop("error_message", None)
+        if not values.get("outputs"):
+            values.pop("outputs", None)
+        job.sudo().write(values)
+        self._refresh_job_targets(job)
+        return job
+
+    def _merge_remote_metadata(self, job, remote_metadata):
+        metadata = {**(job.metadata or {}), **(remote_metadata or {})}
+        # The remote service must never author the local attachment ledger.
+        metadata.pop("attached_output_ids", None)
+        if "attached_output_ids" in (job.metadata or {}):
+            metadata["attached_output_ids"] = job.metadata["attached_output_ids"]
+        return metadata
 
     def _create_error_job(
         self,
@@ -544,8 +706,10 @@ class PhotostudioConnectorService(models.AbstractModel):
         error,
         product_id=False,
     ):
-        job = self.env["photostudio.job"].create(
+        target_values = self._submission_target_values(product_tmpl, product_id)
+        job = self.env["photostudio.job"].sudo().create(
             {
+                **target_values,
                 "job_id": f"local-error-{product_tmpl.id}-{uuid.uuid4()}",
                 "batch_id": batch_id,
                 "product_tmpl_id": product_tmpl.id,
@@ -596,6 +760,7 @@ class PhotostudioConnectorService(models.AbstractModel):
         if remote_status in ("failed", "cancelled"):
             writeback_state = "failed"
         return {
+            **self._submission_target_values(product_tmpl, product_id),
             "job_id": payload["job_id"],
             "batch_id": payload.get("batch_id") or batch_id,
             "product_tmpl_id": product_tmpl.id,
@@ -610,7 +775,8 @@ class PhotostudioConnectorService(models.AbstractModel):
             "outputs": payload.get("outputs") or [],
             "errors": errors,
             "links": payload.get("links") or {},
-            "metadata": payload.get("metadata") or {},
+            "metadata": {key: value for key, value in (payload.get("metadata") or {}).items()
+                         if key != "attached_output_ids"},
             "replace_strategy": replace_strategy,
             "auto_publish": auto_publish,
             "priority": priority,
@@ -618,40 +784,44 @@ class PhotostudioConnectorService(models.AbstractModel):
         }
 
     def _apply_job_payload(self, job, payload):
-        metadata = payload.get("metadata") or job.metadata or {}
-        attached_output_ids = (job.metadata or {}).get("attached_output_ids")
-        if attached_output_ids and "attached_output_ids" not in metadata:
-            metadata = dict(metadata)
-            metadata["attached_output_ids"] = attached_output_ids
+        self._authorize_job(job)
+        if payload.get("job_id") and payload["job_id"] != job.job_id:
+            raise AccessError("Remote job identity does not match the authorized job.")
+        job.lock_for_update()
+        job.invalidate_recordset()
+        metadata = self._merge_remote_metadata(job, payload.get("metadata"))
         remote_status = payload.get("status") or job.status
+        progress = payload.get("progress") or payload.get("status") or job.progress
+        if job.status in ("completed", "failed", "cancelled"):
+            remote_status = job.status
+            progress = job.progress
         values = {
             "status": remote_status,
-            "progress": payload.get("progress") or payload.get("status") or job.progress,
+            "progress": progress,
             "updated_at": payload.get("updated_at"),
             "outputs": payload.get("outputs") or job.outputs,
             "errors": payload.get("errors") or job.errors,
             "links": payload.get("links") or job.links,
             "metadata": metadata,
         }
-        if remote_status == "completed":
+        if remote_status == "completed" and not job.completed_at:
             values["completed_at"] = fields.Datetime.now()
-        elif remote_status in ("failed", "cancelled"):
+        elif remote_status in ("failed", "cancelled") and job.writeback_state == "pending":
             values["writeback_state"] = "failed"
-        job.write(values)
+        job.sudo().write(values)
         if job.status == "completed" and job.writeback_state == "pending":
-            self._attach_ready_outputs(job)
+            self._attach_outputs_isolated(job)
         self._refresh_job_targets(job)
 
     def _attach_target(self, job):
-        if job.product_id:
-            return job.product_id.sudo()
-        return job.product_tmpl_id.sudo()
+        return self._authorize_job(job)
 
     def _attach_ready_outputs(self, job):
+        self._authorize_job(job)
+        job.lock_for_update()
+        job.invalidate_recordset()
         if job.writeback_state in ("attached", "expired", "failed"):
             return
-        job.lock_for_update()
-        job.invalidate_recordset(["metadata", "main_output_attached"])
         outputs = [
             output
             for output in job.outputs or []
@@ -670,13 +840,13 @@ class PhotostudioConnectorService(models.AbstractModel):
             if self._output_identity(output) not in attached_output_ids
         ]
         if not pending_outputs:
-            job.write({"writeback_state": "attached"})
+            job.sudo().write({"writeback_state": "attached", "error_message": False})
             return
 
         client = self.env["photostudio.client"]
-        image_service = self.env["photostudio.image.service"].sudo()
         attach_target = self._attach_target(job)
-        product_tmpl = job.product_tmpl_id.sudo()
+        image_service = self.env["photostudio.image.service"].with_env(attach_target.env)
+        product_tmpl = job.product_tmpl_id.with_env(attach_target.env)
         main_attached = job.main_output_attached
 
         try:
@@ -684,7 +854,9 @@ class PhotostudioConnectorService(models.AbstractModel):
                 for output in pending_outputs:
                     output_url = output.get("download_url") or output.get("url")
                     output_id = self._output_identity(output)
-                    content = client.download_output(output_url)
+                    if output_id in attached_output_ids:
+                        continue
+                    content = client._download_output(output_url)
                     if job.replace_strategy == "replace_main" and not main_attached:
                         image_service.replace_main(attach_target, content)
                         main_attached = True
@@ -701,25 +873,13 @@ class PhotostudioConnectorService(models.AbstractModel):
                     "metadata": metadata,
                     "main_output_attached": main_attached,
                     "writeback_state": "attached",
+                    "error_message": False,
                 }
                 if job.auto_publish and "is_published" in product_tmpl._fields:
                     product_tmpl.is_published = True
-                job.write(write_values)
+                job.sudo().write(write_values)
         except PhotostudioDownloadError as error:
-            attempts = job.download_attempts + 1
-            writeback_state = (
-                "expired" if attempts >= self.MAX_DOWNLOAD_ATTEMPTS else "pending"
-            )
-            message = str(error)
-            if error.status_code:
-                message = f"Download failed ({error.status_code})."
-            job.write(
-                {
-                    "download_attempts": attempts,
-                    "writeback_state": writeback_state,
-                    "error_message": job.error_message or message,
-                }
-            )
+            self._record_writeback_failure(job, error.status_code)
 
     def _output_identity(self, output):
         return str(
@@ -738,12 +898,14 @@ class PhotostudioConnectorService(models.AbstractModel):
         return anchor
 
     def _refresh_job_targets(self, job):
-        self._refresh_product_state(job.product_tmpl_id)
+        target = self._authorize_job(job)
+        service = self.with_env(target.env)
+        service._refresh_product_state(job.product_tmpl_id)
         if job.product_id:
-            self._refresh_variant_state(job.product_id)
+            service._refresh_variant_state(job.product_id)
 
     def _refresh_variant_state(self, variant):
-        variant = variant.sudo()
+        variant = self._authorize_products(variant)
         jobs = self.env["photostudio.job"].search(
             [("product_id", "=", variant.id)],
             order="create_date desc, id desc",
@@ -792,7 +954,7 @@ class PhotostudioConnectorService(models.AbstractModel):
         return "never"
 
     def _refresh_product_state(self, product):
-        product = product.sudo()
+        product = self._authorize_products(product)
         jobs = self.env["photostudio.job"].search(
             [
                 ("product_tmpl_id", "=", product.id),

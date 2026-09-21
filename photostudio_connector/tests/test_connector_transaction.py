@@ -82,7 +82,12 @@ class TestPhotostudioConnectorTransaction(TransactionCase):
         return mock_response
 
     @patch("odoo.addons.photostudio_connector.services.photostudio_client.requests.get")
-    def test_non_manager_poll_attaches_without_access_error(self, mock_get):
+    def test_authorized_operator_poll_attaches_without_system_access(self, mock_get):
+        self.internal_user.write({"group_ids": [
+            (4, self.env.ref("photostudio_connector.group_photostudio_user").id),
+            (4, self.env.ref("product.group_product_manager").id),
+        ]})
+        self.assertFalse(self.internal_user.has_group("base.group_system"))
         self._mock_image_download(mock_get)
 
         job = self._completed_job()
@@ -274,7 +279,7 @@ class TestPhotostudioConnectorTransaction(TransactionCase):
         self.assertTrue(result_replay["replay"])
 
     @patch(
-        "odoo.addons.photostudio_connector.services.photostudio_client.PhotostudioClient.download_output"
+        "odoo.addons.photostudio_connector.services.photostudio_client.PhotostudioClient._download_output"
     )
     def test_download_failure_increments_attempts_without_rollback(self, mock_download):
         mock_download.side_effect = PhotostudioDownloadError(
@@ -290,7 +295,7 @@ class TestPhotostudioConnectorTransaction(TransactionCase):
         self.assertEqual(job.status, "completed")
 
     @patch(
-        "odoo.addons.photostudio_connector.services.photostudio_client.PhotostudioClient.download_output"
+        "odoo.addons.photostudio_connector.services.photostudio_client.PhotostudioClient._download_output"
     )
     def test_max_download_failures_mark_expired(self, mock_download):
         mock_download.side_effect = PhotostudioDownloadError(
@@ -416,7 +421,7 @@ class TestPhotostudioConnectorTransaction(TransactionCase):
         self.assertGreaterEqual(last_poll_at, before)
 
     @patch(
-        "odoo.addons.photostudio_connector.services.photostudio_client.PhotostudioClient.download_output"
+        "odoo.addons.photostudio_connector.services.photostudio_client.PhotostudioClient._download_output"
     )
     def test_attach_isolated_refreshes_product_state(self, mock_download):
         mock_download.side_effect = PhotostudioDownloadError(
@@ -433,7 +438,7 @@ class TestPhotostudioConnectorTransaction(TransactionCase):
         self.assertEqual(self.product.photostudio_sync_state, "attach_pending")
 
     @patch(
-        "odoo.addons.photostudio_connector.services.photostudio_client.PhotostudioClient.download_output"
+        "odoo.addons.photostudio_connector.services.photostudio_client.PhotostudioClient._download_output"
     )
     def test_writeback_cron_uses_attach_isolated(self, mock_download):
         mock_download.side_effect = PhotostudioDownloadError(

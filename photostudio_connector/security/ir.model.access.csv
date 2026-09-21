@@ -1,5 +1,5 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_photostudio_job_user,photostudio.job user,model_photostudio_job,base.group_user,1,1,1,0
-access_photostudio_job_system,photostudio.job system,model_photostudio_job,base.group_system,1,1,1,1
+access_photostudio_job_user,photostudio.job user,model_photostudio_job,photostudio_connector.group_photostudio_user,1,0,0,0
+access_photostudio_job_system,photostudio.job system,model_photostudio_job,base.group_system,1,0,0,0
 access_photostudio_webhook_event_user,photostudio.webhook.event user,model_photostudio_webhook_event,base.group_system,1,0,0,0
-access_photostudio_generate_wizard_user,photostudio.generate.wizard user,model_photostudio_generate_wizard,base.group_user,1,1,1,1
+access_photostudio_generate_wizard_user,photostudio.generate.wizard user,model_photostudio_generate_wizard,photostudio_connector.group_photostudio_user,1,1,1,1

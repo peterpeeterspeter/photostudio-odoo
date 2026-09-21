@@ -4,7 +4,7 @@ import json
 import requests
 
 from odoo import api, models
-from odoo.exceptions import UserError
+from odoo.exceptions import AccessError, UserError
 
 from ..utils.download_errors import PhotostudioDownloadError
 from ..utils.idempotency import deterministic_key
@@ -19,7 +19,7 @@ class PhotostudioClient(models.AbstractModel):
     _description = "Photostudio Client"
 
     @api.model
-    def create_job_batch(self, payload, idempotency_key):
+    def _create_job_batch(self, payload, idempotency_key):
         return self._request(
             "POST",
             "/v1/job-batches",
@@ -29,15 +29,15 @@ class PhotostudioClient(models.AbstractModel):
         )
 
     @api.model
-    def get_job(self, job_id):
+    def _get_job(self, job_id):
         return self._request("GET", f"/v1/jobs/{job_id}")
 
     @api.model
-    def get_batch(self, batch_id):
+    def _get_batch(self, batch_id):
         return self._request("GET", f"/v1/job-batches/{batch_id}")
 
     @api.model
-    def cancel_job(self, job_id):
+    def _cancel_job(self, job_id):
         return self._request(
             "POST",
             f"/v1/jobs/{job_id}/cancel",
@@ -45,49 +45,72 @@ class PhotostudioClient(models.AbstractModel):
         )
 
     @api.model
-    def download_output(self, url):
+    def _download_output(self, url):
+        self._check_client_access()
         params = self.env["ir.config_parameter"].sudo()
         api_url = params.get_param("photostudio_connector.api_url") or ""
-        if not is_allowed_output_url(url, api_url):
-            raise PhotostudioDownloadError(
-                "Photostudio output download blocked: URL origin does not match the configured API URL."
-            )
         timeout = self._timeout()
+        response = None
         try:
-            response = requests.get(url, timeout=timeout, stream=True)
-        except requests.RequestException as error:
-            raise PhotostudioDownloadError(
-                f"Photostudio output download failed: {error}"
-            ) from error
-        with response:
-            if response.status_code >= 400:
+            if not is_allowed_output_url(url, api_url):
                 raise PhotostudioDownloadError(
-                    f"Photostudio output download failed ({response.status_code}).",
-                    status_code=response.status_code,
+                    "Photostudio output download blocked: URL origin does not match the configured API URL."
                 )
-            content_type = response.headers.get("Content-Type", "").split(";", 1)[0]
-            if not content_type.startswith("image/"):
-                raise PhotostudioDownloadError("Photostudio output is not an image.")
-            try:
-                content_length = int(response.headers.get("Content-Length") or 0)
-            except ValueError:
-                content_length = 0
-            if content_length > MAX_OUTPUT_BYTES:
-                raise PhotostudioDownloadError(
-                    "Photostudio output exceeds the 30 MB download limit."
-                )
-            chunks = bytearray()
-            for chunk in response.iter_content(chunk_size=64 * 1024):
-                chunks.extend(chunk)
-                if len(chunks) > MAX_OUTPUT_BYTES:
+            response = requests.get(url, timeout=timeout, stream=True, allow_redirects=False)
+            with response:
+                if 300 <= response.status_code < 400:
+                    raise PhotostudioDownloadError(
+                        f"Photostudio output download redirect blocked ({response.status_code}).",
+                        status_code=response.status_code,
+                    )
+                if response.status_code >= 400:
+                    raise PhotostudioDownloadError(
+                        f"Photostudio output download failed ({response.status_code}).",
+                        status_code=response.status_code,
+                    )
+                content_type = response.headers.get("Content-Type", "").split(";", 1)[0]
+                if not content_type.startswith("image/"):
+                    raise PhotostudioDownloadError("Photostudio output is not an image.")
+                try:
+                    content_length = int(response.headers.get("Content-Length") or 0)
+                except ValueError:
+                    content_length = 0
+                if content_length > MAX_OUTPUT_BYTES:
                     raise PhotostudioDownloadError(
                         "Photostudio output exceeds the 30 MB download limit."
                     )
-            return bytes(chunks)
+                chunks = bytearray()
+                for chunk in response.iter_content(chunk_size=64 * 1024):
+                    chunks.extend(chunk)
+                    if len(chunks) > MAX_OUTPUT_BYTES:
+                        raise PhotostudioDownloadError(
+                            "Photostudio output exceeds the 30 MB download limit."
+                        )
+                return bytes(chunks)
+        except PhotostudioDownloadError:
+            raise
+        except Exception as error:
+            # The entire transport lifecycle, including iteration and close, is
+            # untrusted. Never expose its exception text or chained signed URL.
+            failed_response = getattr(error, "response", None)
+            if failed_response is None:
+                failed_response = response
+            status_code = getattr(failed_response, "status_code", None)
+            raise PhotostudioDownloadError(
+                "Photostudio output download failed.",
+                status_code=status_code if isinstance(status_code, int) else None,
+            ) from None
 
     @api.model
-    def deterministic_key(self, *parts):
+    def _deterministic_key(self, *parts):
+        self._check_client_access()
         return deterministic_key(*parts)
+
+    def _check_client_access(self):
+        if not self.env.su and not self.env.user.has_group(
+            "photostudio_connector.group_photostudio_user"
+        ):
+            raise AccessError("You do not have permission to use the Photostudio connector.")
 
     def _request(
         self,
@@ -98,6 +121,7 @@ class PhotostudioClient(models.AbstractModel):
         allowed_error_codes=None,
         timeout=None,
     ):
+        self._check_client_access()
         params = self.env["ir.config_parameter"].sudo()
         base_url = (params.get_param("photostudio_connector.api_url") or "").rstrip("/")
         api_key = params.get_param("photostudio_connector.api_key") or ""
@@ -122,39 +146,51 @@ class PhotostudioClient(models.AbstractModel):
                 headers=headers,
                 data=json.dumps(payload) if payload is not None else None,
                 timeout=timeout,
+                allow_redirects=False,
             )
-        except requests.RequestException as error:
-            raise UserError(f"Photostudio request failed: {error}") from error
+            with response:
+                if 300 <= response.status_code < 400:
+                    raise UserError(
+                        f"Photostudio request redirect blocked ({response.status_code})."
+                    )
+                try:
+                    body = response.json()
+                except ValueError:
+                    raise UserError(
+                        f"Photostudio returned a non-JSON response ({response.status_code})."
+                    ) from None
 
-        try:
-            body = response.json()
-        except ValueError as error:
-            raise UserError("Photostudio returned a non-JSON response.") from error
-
-        error_code = body.get("code") if isinstance(body, dict) else None
-        is_allowed_error = error_code in (allowed_error_codes or set())
-        if response.status_code >= 400 and not is_allowed_error:
-            message = self._format_api_error(body, response.status_code, response.reason)
-            raise UserError(message)
-        return body
+                error_code = body.get("code") if isinstance(body, dict) else None
+                is_allowed_error = isinstance(error_code, str) and error_code in (
+                    allowed_error_codes or set()
+                )
+                if response.status_code >= 400 and not is_allowed_error:
+                    message = self._format_api_error(body, response.status_code, response.reason)
+                    raise UserError(message)
+                return body
+        except (requests.RequestException, OSError):
+            # Requests exceptions can contain the URL, headers, or response body.
+            raise UserError("Photostudio request failed.") from None
 
     @api.model
     def _format_api_error(self, body, status_code, reason):
-        if not isinstance(body, dict):
-            return f"Photostudio API error ({status_code}): {reason}"
-        code = body.get("code")
-        message = body.get("message") or body.get("error") or reason
+        # Remote free text (including the HTTP reason) can echo credentials or
+        # signed URLs. Keep only the status and locally defined remediation.
+        message = f"Photostudio API error ({status_code})."
+        code = body.get("code") if isinstance(body, dict) else None
         if code == "FORBIDDEN":
             return (
-                f"Photostudio API error ({status_code}): {message} "
+                f"{message} "
                 "Ghost Mannequin requires the ghost_mannequin permission on your API key."
             )
         if code == "PRIORITY_NOT_ALLOWED":
             return (
-                f"Photostudio API error ({status_code}): {message} "
+                f"{message} "
                 "High priority requires the priority_high permission on your API key."
             )
-        return f"Photostudio API error ({status_code}): {message}"
+        if code == "JOB_TERMINAL":
+            return f"{message} Job is already terminal."
+        return message
 
     def _timeout(self):
         params = self.env["ir.config_parameter"].sudo()

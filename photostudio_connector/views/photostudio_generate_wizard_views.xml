@@ -6,6 +6,12 @@
         <field name="arch" type="xml">
             <form string="Generate Images">
                 <sheet>
+                    <div class="alert alert-warning" role="alert">
+                        Generated images are automatically applied to the selected products,
+                        including already-published products. There is no review or approval gate.
+                        The publication checkbox only controls publishing an unpublished product
+                        after automatic image writeback; leaving it unchecked does not delay image changes.
+                    </div>
                     <group>
                         <field name="product_count" readonly="1"/>
                         <field name="product_ids" widget="many2many_tags" readonly="1" invisible="variant_ids"/>
@@ -19,7 +25,7 @@
                         <field name="core_set_help" readonly="1" invisible="operation != 'all'"/>
                         <field name="replace_strategy" widget="radio"/>
                         <field name="confirm_replace_main" invisible="replace_strategy != 'replace_main'"/>
-                        <field name="auto_publish"/>
+                        <field name="auto_publish" string="Publish product after automatic image writeback"/>
                         <field name="use_extra_media"/>
                         <field name="priority"/>
                         <field name="model_preset" invisible="operation not in ('product_image.on_model', 'product_image.lifestyle', 'product_image.photoshoot', 'all')"/>
@@ -32,7 +38,7 @@
                     </group>
                 </sheet>
                 <footer>
-                    <button name="action_confirm" type="object" string="Generate Images" class="btn-primary"/>
+                    <button name="action_confirm" type="object" string="Generate Images" class="btn-primary" groups="photostudio_connector.group_photostudio_user"/>
                     <button string="Cancel" special="cancel" class="btn-secondary"/>
                 </footer>
             </form>

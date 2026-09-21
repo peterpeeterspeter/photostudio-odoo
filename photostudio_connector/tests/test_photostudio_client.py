@@ -1,50 +1,25 @@
 import importlib.util
 from pathlib import Path
-import sys
 import types
 import unittest
 from unittest.mock import Mock, patch
 
-
-class UserError(Exception):
-    pass
-
-
-odoo = types.ModuleType("odoo")
-odoo.api = types.SimpleNamespace(model=lambda method: method)
-odoo.models = types.SimpleNamespace(AbstractModel=object)
-odoo_exceptions = types.ModuleType("odoo.exceptions")
-odoo_exceptions.UserError = UserError
-sys.modules.setdefault("odoo", odoo)
-sys.modules.setdefault("odoo.exceptions", odoo_exceptions)
-
-connector_root = Path(__file__).resolve().parents[1]
-utils_root = connector_root / "utils"
-
-for module_name, filename in (
-    ("photostudio_connector.utils.idempotency", "idempotency.py"),
-    ("photostudio_connector.utils.url_allowlist", "url_allowlist.py"),
-    ("photostudio_connector.utils.download_errors", "download_errors.py"),
-):
-    module_path = utils_root / filename
-    module_spec = importlib.util.spec_from_file_location(module_name, module_path)
-    module = importlib.util.module_from_spec(module_spec)
-    sys.modules[module_name] = module
-    module_spec.loader.exec_module(module)
-
-sys.modules.setdefault("photostudio_connector", types.ModuleType("photostudio_connector"))
-sys.modules.setdefault("photostudio_connector.utils", types.ModuleType("photostudio_connector.utils"))
-sys.modules.setdefault(
-    "photostudio_connector.services", types.ModuleType("photostudio_connector.services")
-)
-
-module_path = connector_root / "services" / "photostudio_client.py"
+# Load the exact client methods without adding fake Odoo modules to sys.modules.
 spec = importlib.util.spec_from_file_location(
-    "photostudio_connector.services.photostudio_client", module_path
+    "transport_support", Path(__file__).with_name("test_download_security.py")
 )
-client_module = importlib.util.module_from_spec(spec)
-sys.modules["photostudio_connector.services.photostudio_client"] = client_module
-spec.loader.exec_module(client_module)
+assert spec and spec.loader
+support = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(support)
+Client, namespace = support.load_client()
+UserError = support.UserError
+client_module = types.SimpleNamespace(PhotostudioClient=Client, **{
+    name: namespace[name] for name in ("requests", "PhotostudioDownloadError")
+})
+
+
+class Environment(dict):
+    su = True
 
 
 class ConfigParameters:
@@ -62,11 +37,13 @@ class ConfigParameters:
 class TestPhotostudioClient(unittest.TestCase):
     def setUp(self):
         self.client = client_module.PhotostudioClient()
-        self.client.env = {"ir.config_parameter": ConfigParameters()}
+        self.client.env = Environment({"ir.config_parameter": ConfigParameters()})
 
     @patch.object(client_module.requests, "request")
     def test_cancel_accepts_not_cancellable_response(self, request):
         response = Mock(status_code=409, reason="Conflict")
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=False)
         response.json.return_value = {
             "success": False,
             "code": "JOB_NOT_CANCELLABLE",
@@ -74,7 +51,7 @@ class TestPhotostudioClient(unittest.TestCase):
         }
         request.return_value = response
 
-        payload = self.client.cancel_job("job-1")
+        payload = self.client._cancel_job("job-1")
 
         self.assertEqual(payload["job"]["status"], "processing")
 
@@ -86,13 +63,15 @@ class TestPhotostudioClient(unittest.TestCase):
         get.return_value = response
 
         with self.assertRaises(client_module.PhotostudioDownloadError) as ctx:
-            self.client.download_output("https://jobs.example.test/storage/v1/object/sign/x")
+            self.client._download_output("https://jobs.example.test/storage/v1/object/sign/x")
 
         self.assertEqual(ctx.exception.status_code, 403)
 
     @patch.object(client_module.requests, "request")
     def test_cancel_still_raises_for_other_conflicts(self, request):
         response = Mock(status_code=409, reason="Conflict")
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=False)
         response.json.return_value = {
             "success": False,
             "code": "JOB_TERMINAL",
@@ -101,7 +80,7 @@ class TestPhotostudioClient(unittest.TestCase):
         request.return_value = response
 
         with self.assertRaisesRegex(UserError, "JOB is already terminal|already terminal"):
-            self.client.cancel_job("job-1")
+            self.client._cancel_job("job-1")
 
     def test_missing_api_key_raises_configuration_error(self):
         class EmptyKeyParams:
@@ -116,12 +95,12 @@ class TestPhotostudioClient(unittest.TestCase):
                 }
                 return values.get(key)
 
-        self.client.env = {"ir.config_parameter": EmptyKeyParams()}
+        self.client.env = Environment({"ir.config_parameter": EmptyKeyParams()})
 
         with self.assertRaisesRegex(
             UserError, "Configure a Photostudio API key before generating images"
         ):
-            self.client.create_job_batch({"items": []}, "test-key")
+            self.client._create_job_batch({"items": []}, "test-key")
 
 
 if __name__ == "__main__":
