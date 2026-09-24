@@ -1,10 +1,10 @@
-# Photostudio Connector (Odoo 19)
+# Photostudio Connector (Odoo 20)
 
 Generate ghost mannequin, flatlay, on-model, lifestyle, photoshoot, detail, and marketplace export images directly from Odoo product photos.
 
 ## Requirements
 
-- **Odoo Community 19** or **Odoo Enterprise 19**
+- **Odoo Community 20** or **Odoo Enterprise 20**
 - **Internet access** (Photostudio Jobs API)
 - **Photostudio.io account** with API credentials for image generation
 
